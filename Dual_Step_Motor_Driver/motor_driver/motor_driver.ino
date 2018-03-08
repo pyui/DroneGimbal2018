@@ -41,23 +41,23 @@ void step(boolean dirY, int stepsY,
           boolean dirP, int stepsP) {
     digitalWrite(dirPinY, dirY);
     digitalWrite(dirPinP, dirP);
-    delay(45);
+    delay(50);
     int max_steps = max(stepsY, stepsP);
     for (int i = 0; i < max_steps; i++) {
         if (i < stepsY) digitalWrite(stepperPinY, HIGH);
         if (i < stepsP) digitalWrite(stepperPinP, HIGH);
-        delayMicroseconds(75); //defines motor speed
+        delayMicroseconds(150); //defines motor speed
         if (i < stepsY) digitalWrite(stepperPinY, LOW);
         if (i < stepsP) digitalWrite(stepperPinP, LOW);
-        delayMicroseconds(75);
+        delayMicroseconds(150);
     }
 }
 // ================================================================
 // ===                    MAIN PROGRAM LOOP                     ===
 // ================================================================
 void loop() {
-  step(true, 1600, false, 400); //true = direction, number = number of steps, 1600/rev
-  delay(50); //delay between forwards and backwards, milliseconds
-  step(false, 800, true, 3200);
-  delay(50);
+  step(true, 800, false, 800); //true = direction, number = number of steps, 1600/rev
+  delay(500); //delay between forwards and backwards, milliseconds
+  step(false, 800, true, 800);
+  delay(500);
 }

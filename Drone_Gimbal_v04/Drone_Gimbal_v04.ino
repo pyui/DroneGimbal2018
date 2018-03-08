@@ -29,7 +29,7 @@ Quaternion q;           // [w, x, y, z]         quaternion container
 VectorFloat gravity;    // [x, y, z]            gravity vector
 int timer1_counter;     // defines timer frequency
 bool flag = 0;          // timer flag
-float ypr[3] = {0, 0, 0};           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
+float ypr[3];// = {0, 0, 0};           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
 float ypPREV[2] = {0, 0}; // used to store previous ypr values
 float netYaw;           // ypr[x1]-ypPREV[y1]
 float netPitch;         // ypr[x2]-ypPREV[y2]
@@ -113,6 +113,8 @@ void setup()
   // Set timer1_counter to the correct value for our interrupt interval
   timer1_counter = 64911;   // preload timer 65536-16MHz/256/100Hz
   //timer1_counter = 64286;   // preload timer 65536-16MHz/256/50Hz
+  //timer1_counter = 59286;   // preload timer 65536-16MHz/256/10Hz
+  //timer1_counter = 53036; // preload timer 65536-16MHz/256/5Hz
   //timer1_counter = 34286;   // preload timer 65536-16MHz/256/2Hz
 
   TCNT1 = timer1_counter;   // preload timer
@@ -184,8 +186,13 @@ void loop()
       mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
       mpu.resetFIFO();
       //Serial.println("elseresetFIFO\n");
-
-
+      Serial.print("Yaw\t");
+      Serial.println(ypr[0]*180/PI);
+      Serial.print("Pitch\t");
+      Serial.println(ypr[1]*180/PI);
+      Serial.print("Roll\t");
+      Serial.println(ypr[2]*180/PI);
+      Serial.println(" ");
 
 
 
@@ -194,16 +201,16 @@ void loop()
       int y_out = yawmed.out(); // obtain median filter output
       y_out_f = float(y_out) / 100; // convert output to degree float value, remove 100x multiplier
       float netYaw = (y_out_f) - (y_out_prev); // obtain net yaw since last measurement
-      Serial.print("netYaw\t");
-      Serial.println(netYaw);
+//      Serial.print("netYaw\t");
+//      Serial.println(netYaw);
 
       p = int((ypr[2] * 180 / M_PI) * 100); // pitch angle in degrees, multiplied by 100 to reduce errors when converting float to int
       pitmed.in(p); // input pitch value to median filter
       int p_out = pitmed.out(); // obtain median filter output
       p_out_f = float(p_out) / 100; // convert output to degree float value, remove 100x multiplier
       float netPitch = (p_out_f) - (p_out_prev); // obtain net pitch since last measurement
-      Serial.print("netPitch\t");
-      Serial.println(netPitch);
+//      Serial.print("netPitch\t");
+//      Serial.println(netPitch);
 
 
       // if netYaw is less than equivalent of one step (1.8deg)
@@ -246,22 +253,22 @@ void loop()
         //Serial.println("pitchDirTRUE");
       }
 
-      Serial.print("yaw step\t");
-      Serial.print(yawStep);
-      Serial.print("\n");
-      Serial.print("pitch step\t");
-      Serial.print(pitchStep);
-      Serial.print("\n");
-      Serial.print("yaw dir\t");
-      Serial.print(yawDir);
-      Serial.print("\n");
-      Serial.print("pitch dir\t");
-      Serial.print(pitchDir);
-      Serial.print("\n");
+//      Serial.print("yaw step\t");
+//      Serial.print(yawStep);
+//      Serial.print("\n");
+//      Serial.print("pitch step\t");
+//      Serial.print(pitchStep);
+//      Serial.print("\n");
+//      Serial.print("yaw dir\t");
+//      Serial.print(yawDir);
+//      Serial.print("\n");
+//      Serial.print("pitch dir\t");
+//      Serial.print(pitchDir);
+//      Serial.print("\n");
       step(yawDir, abs(yawStep), pitchDir, abs(pitchStep)); // control motors using calculated variables
       //step(yawDir, abs(yawStep), 1, 0); // control motors using calculated variables
       //      step(1, 0, pitchDir, abs(pitchStep*2)); //yaw motor has 0.9deg accuracy therefore needs double the number of steps
-      Serial.println("turn motors");
+//      Serial.println("turn motors");
     }
 
   }

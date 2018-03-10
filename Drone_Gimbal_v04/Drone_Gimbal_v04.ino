@@ -149,6 +149,7 @@ void loop() {
   //=== startup procedure
   unsigned long current_millis = millis();
   if ((!startup_complete) && ((current_millis - previous_millis) > 10000)) { // valid after 10s
+    //=== optional motor demo
     if (demo_motors); {
       step(1, 400, 0, 0);                           // yaw motor 1/4 turn forwards
       step(0, 400, 0, 0);                           // yaw motor 1/4 turn backwards
@@ -180,7 +181,7 @@ void loop() {
     while (fifoCount < packetSize) {
       fifoCount = mpu.getFIFOCount();     // get current FIFO count
     }
-    if (fifoCount == 1024) {              // check for overflow
+    if (fifoCount == 1024) {              
       mpu.resetFIFO();                    // reset if overflow
     }
     else {
@@ -189,11 +190,11 @@ void loop() {
         fifoCount -= packetSize;          // subtract packetSize from fifoCount
       }
       
-      //=== store previous values
+      //=== store previous values from median filters
       float y_out_prev = y_out_f;
       float p_out_prev = p_out_f;
 
-      //=== poll IMU for data
+      //=== poll IMU for data, output is ypr vector
       mpu.dmpGetQuaternion(&q, fifoBuffer);
       mpu.dmpGetGravity(&gravity, &q);
       mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);

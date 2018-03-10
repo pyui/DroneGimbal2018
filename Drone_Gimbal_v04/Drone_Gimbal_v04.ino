@@ -45,7 +45,9 @@ float p_out_f = 0;            // ...same for pitch
 const int redLed = 12;        // defines output pin for red led
 const int greenLed = 11;      // ...same for green
 long previous_millis = 0;     // counter for led function
-bool motors_can_turn = 0;     // boolean operator; if true, motors will turn in response to IMU/Leica input
+bool demo_motors = 0;         // optional demo function within startup sequence
+bool motors_can_turn = 0;     // if true, motors will turn in response to IMU/Leica input
+bool startup_complete = 0;    // false until startup sequence complete; prevents startup sequence repeating
 // ================================================================
 // ===               STEPPER DEFINITIONS                        ===
 // ================================================================
@@ -143,20 +145,29 @@ ISR(TIMER1_OVF_vect) {      // interrupt service routine
 // ================================================================
 
 void loop() {
+  
   //=== startup procedure
   unsigned long current_millis = millis();
-  if ((current_millis - previous_millis) > 10000) { // valid after 10s
-    previous_millis = current_millis;               // ensure this loop isn't entered after 10s
+  if ((!startup_complete) && ((current_millis - previous_millis) > 10000)) { // valid after 10s
+    if (demo_motors); {
+      step(1, 400, 0, 0);                           // yaw motor 1/4 turn forwards
+      step(0, 400, 0, 0);                           // yaw motor 1/4 turn backwards
+      step(0, 0, 1, 400);                           // pitch motor 1/4 turn forwards
+      step(0, 0, 0, 400);                           // pitch motor 1/4 turn backwards
+      step(1, 400, 1, 400);                         // both motors 1/4 turn forwards
+      step(0, 400, 0, 400);                         // both motors 1/4 turn backwards
+    }
     digitalWrite(redLed, LOW);                      // turn off red LED
     digitalWrite(greenLed, HIGH);                   // turn on green LED
-    motors_can_turn = 1;                            //allow motors to rotate in response to IMU/Leica input
+    motors_can_turn = 1;                            // allow motors to rotate in response to IMU/Leica input
+    startup_complete = 1;                           // ensure this loop isn't entered again after 10s
   }
+  
   //=== check for Leica data via serial
   //  Leica_Prev = Leica_Data; //store previous Leica co-ordinates
-  //  if (Serial.available())
-  //  {
+  //  if (Serial.available()) {
   //    char Leica_Data = Serial.read(); // receive data from VS code; this should be a vector with r,z,theta in m and deg respectively
-  //  Serial.println(Leica_Data);
+  //  // Serial.println(Leica_Data);
   //  yawLeica = Leica_Data[0];
   //  pitchLeica = Leica_Data[1];
   // netYawLeica = yawLeica - Leica_Prev[0];
@@ -164,7 +175,7 @@ void loop() {
   //  }
 
   //=== interrupt is active
-  if (flag == 1) {
+  if (flag) {
     flag = 0;                             // reset the interrupt flag
     while (fifoCount < packetSize) {
       fifoCount = mpu.getFIFOCount();     // get current FIFO count
@@ -239,7 +250,7 @@ void loop() {
       }
 
       //=== Send motor command
-      if (motors_can_turn == 1) {
+      if (motors_can_turn) {
         step(yawDir, abs(yawStep), pitchDir, abs(pitchStep)); // control motors using calculated variables
       }
     }

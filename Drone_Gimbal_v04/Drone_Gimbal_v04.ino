@@ -228,6 +228,7 @@ void loop() {
       }
       else {                                       // netYaw is greater than one step
         yawStep = ((int)(netYaw) * (1600 / 360));  // step yaw motor by integer value; motor shield has 1600steps/rev
+        //yawStep = ((int)(netYaw) * (400 / 360));  // step yaw motor by integer value; motor shield has 400steps/rev
       }
       if (yawStep < 0) {                           // if yawStep is negative
         yawDir = false;                            // rotate motor backwards
@@ -242,6 +243,7 @@ void loop() {
       }
       else {                                           // netPitch is greater than one step
         pitchStep = ((int)(netPitch) * (1600 / 360));  // step pitch motor by integer value; motor shield has 1600steps/rev
+        //pitchStep = ((int)(netPitch) * (200 / 360));  // step pitch motor by integer value; motor shield has 200steps/rev
       }
       if (pitchStep < 0) {                             // if pitchStep is negative
         pitchDir = false;                              // rotate motor backwards

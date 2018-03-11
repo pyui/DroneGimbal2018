@@ -145,12 +145,12 @@ ISR(TIMER1_OVF_vect) {      // interrupt service routine
 // ================================================================
 
 void loop() {
-  
+
   //=== startup procedure
   unsigned long current_millis = millis();
-  if ((!startup_complete) && ((current_millis - previous_millis) > 10000)) { // valid after 10s
+  if ((!startup_complete) && ((current_millis - previous_millis) > 15000)) { // valid after 15s
     //=== optional motor demo
-    if (demo_motors); {
+    if (demo_motors) {
       step(1, 400, 0, 0);                           // yaw motor 1/4 turn forwards
       step(0, 400, 0, 0);                           // yaw motor 1/4 turn backwards
       step(0, 0, 1, 400);                           // pitch motor 1/4 turn forwards
@@ -163,7 +163,7 @@ void loop() {
     motors_can_turn = 1;                            // allow motors to rotate in response to IMU/Leica input
     startup_complete = 1;                           // ensure this loop isn't entered again after 10s
   }
-  
+
   //=== check for Leica data via serial
   //  Leica_Prev = Leica_Data; //store previous Leica co-ordinates
   //  if (Serial.available()) {
@@ -181,7 +181,7 @@ void loop() {
     while (fifoCount < packetSize) {
       fifoCount = mpu.getFIFOCount();     // get current FIFO count
     }
-    if (fifoCount == 1024) {              
+    if (fifoCount == 1024) {
       mpu.resetFIFO();                    // reset if overflow
     }
     else {
@@ -189,7 +189,7 @@ void loop() {
         mpu.getFIFOBytes(fifoBuffer, packetSize);
         fifoCount -= packetSize;          // subtract packetSize from fifoCount
       }
-      
+
       //=== store previous values from median filters
       float y_out_prev = y_out_f;
       float p_out_prev = p_out_f;

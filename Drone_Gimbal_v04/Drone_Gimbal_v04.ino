@@ -45,7 +45,10 @@ bool pitchDir;                // ...same for pitch
 
 //=== Leica input variables
 String inString = "";         // string to hold input from Leica
-float Leica_Data[3];          // [r, z, theta]
+float Leica_Data[2] = {0, 0};          // [yaw, pitch]
+float Leica_Prev[2] = {0, 0};
+float netYawLeica = 0;
+float netPitchLeica = 0;
 
 //=== Median Filter variables
 MedianFilter yawmed(3, 0);    // 3-sample median filter to smooth out yaw motor response with minimal latency
@@ -101,7 +104,7 @@ void step(boolean dirY, int stepsY,
 
 void setup()
 {
-  Serial.begin(9600);            // initialize serial communication
+  Serial.begin(115200);            // initialize serial communication
   //=== LED setup
   pinMode(12, OUTPUT);
   pinMode(11, OUTPUT);
@@ -181,111 +184,127 @@ void loop() {
   }
 
   //=== check for Leica data via serial
-  int x = 0;
-  float Leica_Prev() = Leica_Data(); //store previous Leica co-ordinates
+  float netYawLeica_prev = netYawLeica;
+  float netPitchLeica_prev = netPitchLeica;
+
+  Leica_Prev[0] = Leica_Data[0]; //store previous Leica co-ordinates
+  Leica_Prev[1] = Leica_Data[1];
   if (Serial.available()) {
+    int x = 0;
     int inChar = Serial.read();                           // receive data from VS code; this should be a vector with r,z,theta in m and deg respectively
     // Serial.println(Leica_Data);
-    for (int i = 0; i <= 2; i++) {
-      if ((inChar != ',') && (inString.length() < 8)) {   // if it hasn't seen a comma and the length of inString is less than 8
+    for (int i = 0; i <= 1; i++) {
+      if (inChar != ',') {   // if it hasn't seen a comma
         inString += (char)inChar;                         // add inChar character to inString
       }
-      else {                                              // if a comma is found, or inString length equals 8
-        Serial.print(inString);
+      else {                                              // if a comma is found
+        //Serial.print(inString);
         Leica_Data[x] = (inString.toFloat());             // store data in Leica_Data
-        Serial.print(Leica_Data[x]);
+        //Serial.print(Leica_Data[x]);
         inString = "";                                    // clear inString for next input
         x++;                                              // increment x for Leica_Data
       }
-      i = 0;
-      yawLeica = Leica_Data[0];
-      pitchLeica = Leica_Data[1];
-      netYawLeica = yawLeica - Leica_Prev[0];
-      netPitchLeica = pitchLeica - Leica_Prev[1];
     }
+  }
+  float netYawLeica = Leica_Data[0] - Leica_Prev[0];
+  float netPitchLeica = Leica_Data[1] - Leica_Prev[1];
 
-    //=== interrupt is active
-    if (flag) {
-      flag = 0;                             // reset the interrupt flag
-      while (fifoCount < packetSize) {
-        fifoCount = mpu.getFIFOCount();     // get current FIFO count
+  //=== stops the Leica signal from affecting the motor control signal every interrupt
+  // if the netYawLeica value hasn't changed since the last loop of the main code, set its
+  // output to zero to avoid the motors continuously correcting the same position signal
+  if ((netYawLeica == netYawLeica_prev) && (netPitchLeica == netPitchLeica_prev)) {
+    netYawLeica = 0;
+    netYawLeica_prev = 0;
+    netPitchLeica = 0;
+    netPitchLeica_prev = 0;
+  }
+
+  //=== interrupt is active
+  if (flag) {
+    flag = 0;                             // reset the interrupt flag
+    while (fifoCount < packetSize) {
+      fifoCount = mpu.getFIFOCount();     // get current FIFO count
+    }
+    if (fifoCount == 1024) {
+      mpu.resetFIFO();                    // reset if overflow
+    }
+    else {
+      while (fifoCount >= packetSize) {
+        mpu.getFIFOBytes(fifoBuffer, packetSize);
+        fifoCount -= packetSize;          // subtract packetSize from fifoCount
       }
-      if (fifoCount == 1024) {
-        mpu.resetFIFO();                    // reset if overflow
+
+      //=== store previous values from median filters
+      float y_out_prev = y_out_f;
+      float p_out_prev = p_out_f;
+
+      //=== poll IMU for data, output is ypr vector
+      mpu.dmpGetQuaternion(&q, fifoBuffer);
+      mpu.dmpGetGravity(&gravity, &q);
+      mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+      mpu.resetFIFO();
+
+      //        Serial.print("Yaw\t");
+      //        Serial.println(ypr[0] * 180 / PI);
+      //        Serial.print("Pitch\t");
+      //        Serial.println(ypr[1] * 180 / PI);
+      //        Serial.print("Roll\t");
+      //        Serial.println(ypr[2] * 180 / PI);
+      //        Serial.println(" ");
+
+      //=== Calculate filtered net yaw movement since last input
+      y = int((ypr[0] * 180 / M_PI) * 100);         // yaw angle in degrees, multiplied by 100 to reduce errors when converting float to int
+      yawmed.in(y);                                 // input yaw value to median filter
+      int y_out = yawmed.out();                     // obtain median filter output
+      y_out_f = float(y_out) / 100;                 // convert output to degree float value, remove 100x multiplier
+      float netYawIMU = (y_out_f) - (y_out_prev);   // obtain net yaw since last measurement
+
+      //=== Calculate filtered net pitch movement since last input
+      p = int((ypr[2] * 180 / M_PI) * 100);         // pitch angle in degrees, multiplied by 100 to reduce errors when converting float to int
+      pitmed.in(p);                                 // input pitch value to median filter
+      int p_out = pitmed.out();                     // obtain median filter output
+      p_out_f = float(p_out) / 100;                 // convert output to degree float value, remove 100x multiplier
+      float netPitchIMU = (p_out_f) - (p_out_prev); // obtain net pitch since last measurement
+
+      //=== Total yaw and pitch angles
+      netYaw = netYawIMU + netYawLeica;           // need testing to check whether this is valid in CW or CCW setting on Leica
+      netPitch = netPitchIMU + netPitchLeica;
+
+      //=== Calculate yaw motor step and direction
+      if (((netYaw) > -1.8) && ((netYaw) < 1.8)) { // if netYaw is less than equivalent of one step (1.8deg)
+        yawStep = 0;                               // don't step the motor
       }
-      else {
-        while (fifoCount >= packetSize) {
-          mpu.getFIFOBytes(fifoBuffer, packetSize);
-          fifoCount -= packetSize;          // subtract packetSize from fifoCount
-        }
+      else {                                       // netYaw is greater than one step
+        yawStep = ((int)(netYaw) * (1600 / 360));  // step yaw motor by integer value; motor shield has 1600steps/rev
+        //yawStep = ((int)(netYaw) * (400 / 360));  // step yaw motor by integer value; motor shield has 400steps/rev
+      }
+      if (yawStep < 0) {                           // if yawStep is negative
+        yawDir = false;                            // rotate motor backwards
+      }
+      else {                                       // yawStep is positive
+        yawDir = true;                             // rotate motor forwards
+      }
 
-        //=== store previous values from median filters
-        float y_out_prev = y_out_f;
-        float p_out_prev = p_out_f;
+      //=== Calculate pitch motor step and direction
+      if (((netPitch) > -1.8) && ((netPitch) < 1.8)) { // if netPitch is less than equivalent of one step (1.8deg)
+        pitchStep = 0;                                 // don't step the motor
+      }
+      else {                                           // netPitch is greater than one step
+        pitchStep = ((int)(netPitch) * (1600 / 360));  // step pitch motor by integer value; motor shield has 1600steps/rev
+        //pitchStep = ((int)(netPitch) * (200 / 360));  // step pitch motor by integer value; motor shield has 200steps/rev
+      }
+      if (pitchStep < 0) {                             // if pitchStep is negative
+        pitchDir = false;                              // rotate motor backwards
+      }
+      else {                                           // pitchStep is positive
+        pitchDir = true;                               // rotate motor forwards
+      }
 
-        //=== poll IMU for data, output is ypr vector
-        mpu.dmpGetQuaternion(&q, fifoBuffer);
-        mpu.dmpGetGravity(&gravity, &q);
-        mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-        mpu.resetFIFO();
-
-        Serial.print("Yaw\t");
-        Serial.println(ypr[0] * 180 / PI);
-        Serial.print("Pitch\t");
-        Serial.println(ypr[1] * 180 / PI);
-        Serial.print("Roll\t");
-        Serial.println(ypr[2] * 180 / PI);
-        Serial.println(" ");
-
-        //=== Calculate filtered net yaw movement since last input
-        y = int((ypr[0] * 180 / M_PI) * 100);       // yaw angle in degrees, multiplied by 100 to reduce errors when converting float to int
-        yawmed.in(y);                               // input yaw value to median filter
-        int y_out = yawmed.out();                   // obtain median filter output
-        y_out_f = float(y_out) / 100;               // convert output to degree float value, remove 100x multiplier
-        float netYaw = (y_out_f) - (y_out_prev);    // obtain net yaw since last measurement
-
-        //=== Calculate filtered net pitch movement since last input
-        p = int((ypr[2] * 180 / M_PI) * 100);       // pitch angle in degrees, multiplied by 100 to reduce errors when converting float to int
-        pitmed.in(p);                               // input pitch value to median filter
-        int p_out = pitmed.out();                   // obtain median filter output
-        p_out_f = float(p_out) / 100;               // convert output to degree float value, remove 100x multiplier
-        float netPitch = (p_out_f) - (p_out_prev);  // obtain net pitch since last measurement
-
-        //=== Calculate yaw motor step and direction
-        if (((netYaw) > -1.8) && ((netYaw) < 1.8)) { // if netYaw is less than equivalent of one step (1.8deg)
-          yawStep = 0;                               // don't step the motor
-        }
-        else {                                       // netYaw is greater than one step
-          yawStep = ((int)(netYaw) * (1600 / 360));  // step yaw motor by integer value; motor shield has 1600steps/rev
-          //yawStep = ((int)(netYaw) * (400 / 360));  // step yaw motor by integer value; motor shield has 400steps/rev
-        }
-        if (yawStep < 0) {                           // if yawStep is negative
-          yawDir = false;                            // rotate motor backwards
-        }
-        else {                                       // yawStep is positive
-          yawDir = true;                             // rotate motor forwards
-        }
-
-        //=== Calculate pitch motor step and direction
-        if (((netPitch) > -1.8) && ((netPitch) < 1.8)) { // if netPitch is less than equivalent of one step (1.8deg)
-          pitchStep = 0;                                 // don't step the motor
-        }
-        else {                                           // netPitch is greater than one step
-          pitchStep = ((int)(netPitch) * (1600 / 360));  // step pitch motor by integer value; motor shield has 1600steps/rev
-          //pitchStep = ((int)(netPitch) * (200 / 360));  // step pitch motor by integer value; motor shield has 200steps/rev
-        }
-        if (pitchStep < 0) {                             // if pitchStep is negative
-          pitchDir = false;                              // rotate motor backwards
-        }
-        else {                                           // pitchStep is positive
-          pitchDir = true;                               // rotate motor forwards
-        }
-
-        //=== Send motor command
-        if (motors_can_turn) {
-          step(yawDir, abs(yawStep), pitchDir, abs(pitchStep)); // control motors using calculated variables
-        }
+      //=== Send motor command
+      if (motors_can_turn) {
+        step(yawDir, abs(yawStep), pitchDir, abs(pitchStep)); // control motors using calculated variables
       }
     }
   }
-  // end
+}
+// end

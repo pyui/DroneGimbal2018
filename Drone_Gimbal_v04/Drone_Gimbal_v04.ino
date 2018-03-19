@@ -70,10 +70,10 @@ bool startup_complete = 0;    // false until startup sequence complete; prevents
 // ===               STEPPER DEFINITIONS                        ===
 // ================================================================
 
-int dirPinY = 3;        // X motor on shield
-int stepperPinY = 2;    // X motor on shield
-int dirPinP = 7;        // Y motor on shield
-int stepperPinP = 6;    // Y motor on shield
+int dirPinP = 3;        // X motor on shield
+int stepperPinP = 2;    // X motor on shield
+int dirPinY = 7;        // Y motor on shield
+int stepperPinY = 6;    // Y motor on shield
 
 // ================================================================
 // ===                    STEP FUNCTION                         ===
@@ -104,10 +104,16 @@ void step(boolean dirY, int stepsY,
 
 void setup()
 {
-  Serial.begin(115200);            // initialize serial communication
+  //Serial.begin(115200);            // initialize serial communication
+  Serial.begin(9600);
+
+  Serial.println("CLEARDATA");
+  Serial.println("LABEL, TIME, TIMER, NetYaw, NetYawFiltered, NetPitch, NetPitchFiltered");
+  Serial.println("RESETTIMER");
+
   //=== LED setup
-  pinMode(12, OUTPUT);
-  pinMode(11, OUTPUT);
+  pinMode(redLed, OUTPUT);
+  pinMode(greenLed, OUTPUT);
   digitalWrite(redLed, HIGH);    // turn red LED on
 
   //=== IMU setup
@@ -164,60 +170,60 @@ ISR(TIMER1_OVF_vect) {      // interrupt service routine
 void loop() {
 
   //=== startup procedure
-  unsigned long current_millis = millis();
-  if ((!startup_complete) && ((current_millis - previous_millis) > 15000)) { // valid after 15s
+//  unsigned long current_millis = millis();
+//  if ((!startup_complete) && ((current_millis - previous_millis) > 15000)) { // valid after 15s
+//Serial.println("if loop");
+//    //=== optional motor demo
+//    if (demo_motors) {
+//      step(1, 400, 0, 0);                           // yaw motor 1/4 turn forwards
+//      step(0, 400, 0, 0);                           // yaw motor 1/4 turn backwards
+//      step(0, 0, 1, 400);                           // pitch motor 1/4 turn forwards
+//      step(0, 0, 0, 400);                           // pitch motor 1/4 turn backwards
+//      step(1, 400, 1, 400);                         // both motors 1/4 turn forwards
+//      step(0, 400, 0, 400);                         // both motors 1/4 turn backwards
+//    }
+//
+//    digitalWrite(redLed, LOW);                      // turn off red LED
+//    digitalWrite(greenLed, HIGH);                   // turn on green LED
+//    motors_can_turn = 1;                            // allow motors to rotate in response to IMU/Leica input
+//    startup_complete = 1;                           // ensure this loop isn't entered again after 15s
+//  }
 
-    //=== optional motor demo
-    if (demo_motors) {
-      step(1, 400, 0, 0);                           // yaw motor 1/4 turn forwards
-      step(0, 400, 0, 0);                           // yaw motor 1/4 turn backwards
-      step(0, 0, 1, 400);                           // pitch motor 1/4 turn forwards
-      step(0, 0, 0, 400);                           // pitch motor 1/4 turn backwards
-      step(1, 400, 1, 400);                         // both motors 1/4 turn forwards
-      step(0, 400, 0, 400);                         // both motors 1/4 turn backwards
-    }
-
-    digitalWrite(redLed, LOW);                      // turn off red LED
-    digitalWrite(greenLed, HIGH);                   // turn on green LED
-    motors_can_turn = 1;                            // allow motors to rotate in response to IMU/Leica input
-    startup_complete = 1;                           // ensure this loop isn't entered again after 10s
-  }
-
-  //=== check for Leica data via serial
-  float netYawLeica_prev = netYawLeica;
-  float netPitchLeica_prev = netPitchLeica;
-
-  Leica_Prev[0] = Leica_Data[0]; //store previous Leica co-ordinates
-  Leica_Prev[1] = Leica_Data[1];
-  if (Serial.available()) {
-    int x = 0;
-    int inChar = Serial.read();                           // receive data from VS code; this should be a vector with r,z,theta in m and deg respectively
-    // Serial.println(Leica_Data);
-    for (int i = 0; i <= 1; i++) {
-      if (inChar != ',') {   // if it hasn't seen a comma
-        inString += (char)inChar;                         // add inChar character to inString
-      }
-      else {                                              // if a comma is found
-        //Serial.print(inString);
-        Leica_Data[x] = (inString.toFloat());             // store data in Leica_Data
-        //Serial.print(Leica_Data[x]);
-        inString = "";                                    // clear inString for next input
-        x++;                                              // increment x for Leica_Data
-      }
-    }
-  }
-  float netYawLeica = Leica_Data[0] - Leica_Prev[0];
-  float netPitchLeica = Leica_Data[1] - Leica_Prev[1];
-
-  //=== stops the Leica signal from affecting the motor control signal every interrupt
-  // if the netYawLeica value hasn't changed since the last loop of the main code, set its
-  // output to zero to avoid the motors continuously correcting the same position signal
-  if ((netYawLeica == netYawLeica_prev) && (netPitchLeica == netPitchLeica_prev)) {
-    netYawLeica = 0;
-    netYawLeica_prev = 0;
-    netPitchLeica = 0;
-    netPitchLeica_prev = 0;
-  }
+  //  //=== check for Leica data via serial
+  //  float netYawLeica_prev = netYawLeica;
+  //  float netPitchLeica_prev = netPitchLeica;
+  //
+  //  Leica_Prev[0] = Leica_Data[0]; //store previous Leica co-ordinates
+  //  Leica_Prev[1] = Leica_Data[1];
+  //  if (Serial.available()) {
+  //    int x = 0;
+  //    int inChar = Serial.read();                           // receive data from VS code; this should be a vector with r,z,theta in m and deg respectively
+  //    // Serial.println(Leica_Data);
+  //    for (int i = 0; i <= 1; i++) {
+  //      if (inChar != ',') {   // if it hasn't seen a comma
+  //        inString += (char)inChar;                         // add inChar character to inString
+  //      }
+  //      else {                                              // if a comma is found
+  //        //Serial.print(inString);
+  //        Leica_Data[x] = (inString.toFloat());             // store data in Leica_Data
+  //        //Serial.print(Leica_Data[x]);
+  //        inString = "";                                    // clear inString for next input
+  //        x++;                                              // increment x for Leica_Data
+  //      }
+  //    }
+  //  }
+  //  float netYawLeica = Leica_Data[0] - Leica_Prev[0];
+  //  float netPitchLeica = Leica_Data[1] - Leica_Prev[1];
+  //
+  //  //=== stops the Leica signal from affecting the motor control signal every interrupt
+  //  // if the netYawLeica value hasn't changed since the last loop of the main code, set its
+  //  // output to zero to avoid the motors continuously correcting the same position signal
+  //  if ((netYawLeica == netYawLeica_prev) && (netPitchLeica == netPitchLeica_prev)) {
+  //    netYawLeica = 0;
+  //    netYawLeica_prev = 0;
+  //    netPitchLeica = 0;
+  //    netPitchLeica_prev = 0;
+  //  }
 
   //=== interrupt is active
   if (flag) {
@@ -238,19 +244,23 @@ void loop() {
       float y_out_prev = y_out_f;
       float p_out_prev = p_out_f;
 
+      //=== temporary for data acquisition
+      float yawprev = ypr[0];
+      float pitchprev = ypr[2];
+      
       //=== poll IMU for data, output is ypr vector
       mpu.dmpGetQuaternion(&q, fifoBuffer);
       mpu.dmpGetGravity(&gravity, &q);
       mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
       mpu.resetFIFO();
 
-      //        Serial.print("Yaw\t");
-      //        Serial.println(ypr[0] * 180 / PI);
-      //        Serial.print("Pitch\t");
-      //        Serial.println(ypr[1] * 180 / PI);
-      //        Serial.print("Roll\t");
-      //        Serial.println(ypr[2] * 180 / PI);
-      //        Serial.println(" ");
+//              Serial.print("Yaw\t");
+//              Serial.println(ypr[0] * 180 / PI);
+//              Serial.print("Pitch\t");
+//              Serial.println(ypr[1] * 180 / PI);
+//              Serial.print("Roll\t");
+//              Serial.println(ypr[2] * 180 / PI);
+//              Serial.println(" ");
 
       //=== Calculate filtered net yaw movement since last input
       y = int((ypr[0] * 180 / M_PI) * 100);         // yaw angle in degrees, multiplied by 100 to reduce errors when converting float to int
@@ -271,13 +281,13 @@ void loop() {
       netPitch = netPitchIMU + netPitchLeica;
 
       //=== Calculate yaw motor step and direction
-      if (((netYaw) > -1.8) && ((netYaw) < 1.8)) { // if netYaw is less than equivalent of one step (1.8deg)
-        yawStep = 0;                               // don't step the motor
-      }
-      else {                                       // netYaw is greater than one step
-        yawStep = ((int)(netYaw) * (1600 / 360));  // step yaw motor by integer value; motor shield has 1600steps/rev
-        //yawStep = ((int)(netYaw) * (400 / 360));  // step yaw motor by integer value; motor shield has 400steps/rev
-      }
+      //      if (((netYaw) > -1.8) && ((netYaw) < 1.8)) { // if netYaw is less than equivalent of one step (1.8deg)
+      //        yawStep = 0;                               // don't step the motor
+      //      }
+      //      else {                                       // netYaw is greater than one step
+      yawStep = ((int)(netYaw) * (1600 / 360));  // step yaw motor by integer value; motor shield has 1600steps/rev
+      //yawStep = ((int)(netYaw) * (400 / 360));  // step yaw motor by integer value; motor shield has 400steps/rev
+      //      }
       if (yawStep < 0) {                           // if yawStep is negative
         yawDir = false;                            // rotate motor backwards
       }
@@ -286,19 +296,35 @@ void loop() {
       }
 
       //=== Calculate pitch motor step and direction
-      if (((netPitch) > -1.8) && ((netPitch) < 1.8)) { // if netPitch is less than equivalent of one step (1.8deg)
-        pitchStep = 0;                                 // don't step the motor
-      }
-      else {                                           // netPitch is greater than one step
-        pitchStep = ((int)(netPitch) * (1600 / 360));  // step pitch motor by integer value; motor shield has 1600steps/rev
-        //pitchStep = ((int)(netPitch) * (200 / 360));  // step pitch motor by integer value; motor shield has 200steps/rev
-      }
+      //      if (((netPitch) > -1.8) && ((netPitch) < 1.8)) { // if netPitch is less than equivalent of one step (1.8deg)
+      //        pitchStep = 0;                                 // don't step the motor
+      //      }
+      //      else {                                           // netPitch is greater than one step
+      pitchStep = ((int)(netPitch) * (1600 / 360));  // step pitch motor by integer value; motor shield has 1600steps/rev
+      //pitchStep = ((int)(netPitch) * (200 / 360));  // step pitch motor by integer value; motor shield has 200steps/rev
+      //      }
       if (pitchStep < 0) {                             // if pitchStep is negative
         pitchDir = false;                              // rotate motor backwards
       }
       else {                                           // pitchStep is positive
         pitchDir = true;                               // rotate motor forwards
       }
+      
+      Serial.print("DATA,TIME,TIMER,");
+      Serial.print((ypr[0]-yawprev)*180/PI);
+      Serial.print(",");
+      Serial.print(netYawIMU);
+      Serial.print(",");
+      Serial.print((ypr[2]-pitchprev)*180/PI);
+      Serial.print(",");
+      Serial.println(netPitchIMU);
+      //      Serial.print("\t");
+      //      Serial.print(netPitchIMU);
+      //      Serial.print("\t");
+      //      Serial.println(yawStep);
+      //      Serial.print("\t");
+      //      Serial.print(pitchStep);
+      //      Serial.print("\t");
 
       //=== Send motor command
       if (motors_can_turn) {

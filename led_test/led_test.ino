@@ -1,5 +1,5 @@
-const int green = 6;
-const int red = 7;
+const int green = 11;
+const int red = 12;
 void setup() {
   // put your setup code here, to run once:
 
